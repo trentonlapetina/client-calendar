@@ -1,0 +1,1505 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Client Calendar</title>
+<style>
+:root{
+  --bg:#f5f6fa; --surface:#ffffff; --surface-2:#f0f2f7; --border:#e2e5ee; --border-soft:#eef0f5;
+  --text:#1a1e29; --muted:#687085; --accent:#4f46e5; --accent-weak:#eceeff; --accent-text:#ffffff;
+  --danger:#d92d20; --warn:#b45309; --warn-bg:#fff6e5; --warn-border:#f6d48f; --ok:#15803d;
+  --shadow:0 1px 2px rgba(16,24,40,.05),0 6px 20px rgba(16,24,40,.06);
+  --radius:14px; --hour:52px; --gut:56px;
+  --st-booked:#4f46e5; --st-confirmed:#15a34a; --st-completed:#64748b; --st-cancelled:#d92d20; --st-noshow:#d97706;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0e1117; --surface:#161a22; --surface-2:#1d222c; --border:#2a303c; --border-soft:#222833;
+    --text:#e6e9f0; --muted:#98a1b3; --accent:#8b93ff; --accent-weak:#252a4d; --accent-text:#0e1117;
+    --danger:#f97066; --warn:#fbbf24; --warn-bg:#2f2610; --warn-border:#6b5317; --ok:#4ade80;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+    --st-booked:#8b93ff; --st-confirmed:#4ade80; --st-completed:#94a3b8; --st-cancelled:#f97066; --st-noshow:#fbbf24;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text)}
+body{font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hidden{display:none!important}
+.muted{color:var(--muted)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 12px;border:1px solid var(--border);background:var(--surface);border-radius:10px;white-space:nowrap;transition:background .12s,border-color .12s}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-text);font-weight:600}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.danger{color:var(--danger)}
+.btn.danger-solid{background:var(--danger);border-color:var(--danger);color:#fff;font-weight:600}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--surface-2)}
+.btn.icon{width:36px;padding:0}
+.btn.sm{height:30px;padding:0 10px;font-size:13px;border-radius:8px}
+
+/* Top bar */
+.topbar{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:10px 16px;background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:15px;letter-spacing:-.01em}
+.logo{width:30px;height:30px;border-radius:9px;background:var(--accent);color:var(--accent-text);display:grid;place-items:center}
+.logo svg.i{width:17px;height:17px}
+.navgrp{display:flex;align-items:center;gap:6px;min-width:0}
+#title{font-size:18px;margin:0 0 0 6px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.spacer{flex:1}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:2px;gap:2px}
+.seg button{border:0;background:transparent;padding:0 14px;height:30px;border-radius:8px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent-weak);color:var(--accent);font-weight:600}
+.actions{display:flex;gap:6px;align-items:center}
+.banner{background:var(--warn-bg);border-bottom:1px solid var(--warn-border);color:var(--text);padding:8px 16px;font-size:13px;display:flex;gap:8px;align-items:center}
+
+@media (max-width:760px){
+  .topbar{padding:10px 12px}
+  .brand{order:1}
+  .actions{order:2;margin-left:auto}
+  .spacer{display:none}
+  .navgrp{order:3;flex:1 1 100%}
+  .seg{order:4;flex:1 1 100%}
+  .seg button{flex:1}
+  .actions .lbl{display:none}
+  .actions .btn{width:36px;padding:0}
+  #title{font-size:16px}
+  .brand-text{display:none}
+}
+
+/* Layout */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;padding:16px;max-width:1520px;margin:0 auto;align-items:start}
+@media (max-width:980px){.layout{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:760px){.layout{padding:10px 10px 24px;gap:12px}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;min-width:0}
+
+/* Status colors */
+.st-booked{--c:var(--st-booked)} .st-confirmed{--c:var(--st-confirmed)} .st-completed{--c:var(--st-completed)}
+.st-cancelled{--c:var(--st-cancelled)} .st-no-show{--c:var(--st-noshow)}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,var(--c) 15%,transparent);color:var(--c);white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c)}
+.warnflag{color:var(--warn);display:inline-flex;align-items:center}
+.warnflag svg.i{width:14px;height:14px}
+
+/* Month view */
+.month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.m-dow{padding:9px 8px;font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);text-align:left}
+.m-cell{min-height:118px;border-right:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);padding:5px;display:flex;flex-direction:column;gap:3px;min-width:0;cursor:pointer;transition:background .1s}
+.m-cell:nth-child(7n){border-right:0}
+.m-cell:hover{background:color-mix(in srgb,var(--accent) 4%,transparent)}
+.m-cell.nonwork{background:color-mix(in srgb,var(--surface-2) 55%,transparent)}
+.m-cell.other{color:var(--muted)}
+.m-cell.other .m-num{opacity:.55}
+.m-num{align-self:flex-start;min-width:28px;height:28px;padding:0 6px;border-radius:999px;border:0;background:transparent;font-size:13px;font-weight:550}
+.m-num:hover{background:var(--surface-2)}
+.m-cell.today .m-num{background:var(--accent);color:var(--accent-text);font-weight:700}
+.m-events{display:flex;flex-direction:column;gap:2px;min-width:0}
+.chip{display:flex;gap:5px;align-items:center;width:100%;min-width:0;border:0;text-align:left;font-size:12px;padding:2px 6px;border-radius:6px;background:color-mix(in srgb,var(--c) 13%,var(--surface));box-shadow:inset 3px 0 0 var(--c);overflow:hidden;white-space:nowrap;color:var(--text)}
+.chip:hover{background:color-mix(in srgb,var(--c) 22%,var(--surface))}
+.chip .t{color:var(--muted);flex:none;font-variant-numeric:tabular-nums}
+.chip .n{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.chip.inactive{opacity:.6}
+.chip.st-cancelled .n{text-decoration:line-through}
+.chip.conflict{box-shadow:inset 3px 0 0 var(--c),inset 0 0 0 1px var(--warn)}
+.chip.x{display:none}
+.more{font-size:12px;color:var(--muted);border:0;background:none;text-align:left;padding:1px 6px;border-radius:6px}
+.more:hover{color:var(--accent)}
+@media (max-width:640px){
+  .m-dow{padding:8px 0;text-align:center;font-size:10.5px;letter-spacing:.02em}
+  .m-cell{min-height:62px;padding:3px;align-items:center}
+  .m-num{align-self:center;min-width:26px;height:26px;font-size:12.5px}
+  .m-events{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:3px}
+  .chip,.chip.x{display:block;width:7px;height:7px;padding:0;border-radius:50%;background:var(--c);box-shadow:none;pointer-events:none}
+  .chip .t,.chip .n{display:none}
+  .more{display:none}
+}
+
+/* Time grid (week/day) */
+.tg{--cols:7}
+.tg-head{display:grid;grid-template-columns:var(--gut) repeat(var(--cols),minmax(0,1fr));border-bottom:1px solid var(--border);background:var(--surface)}
+.tg-dh{padding:7px 2px;text-align:center;border:0;border-left:1px solid var(--border-soft);background:transparent;min-width:0;display:flex;flex-direction:column;align-items:center;gap:1px}
+.tg-dh:hover{background:var(--surface-2)}
+.tg-dh .dow{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.tg-dh .dn{font-size:19px;font-weight:650;line-height:30px;min-width:30px;height:30px;border-radius:999px;padding:0 4px}
+.tg-dh.today .dn{background:var(--accent);color:var(--accent-text)}
+.tg-dh .cnt{font-size:11px;color:var(--muted)}
+.tg-scroll{overflow-y:auto;overflow-x:hidden;max-height:calc(100vh - 200px);min-height:380px;position:relative}
+.tg-body{display:grid;grid-template-columns:var(--gut) repeat(var(--cols),minmax(0,1fr));position:relative}
+.tg-times{position:relative}
+.tg-time{position:absolute;right:8px;font-size:11px;color:var(--muted);transform:translateY(-50%);white-space:nowrap;font-variant-numeric:tabular-nums}
+.tg-time.first{transform:none;top:2px!important}
+.tg-col{position:relative;border-left:1px solid var(--border-soft);min-width:0;cursor:copy;
+  background-image:linear-gradient(to bottom,var(--border-soft) 1px,transparent 1px),linear-gradient(to bottom,color-mix(in srgb,var(--border-soft) 55%,transparent) 1px,transparent 1px);
+  background-size:100% var(--hour),100% calc(var(--hour) / 2)}
+.tg-col.today{background-color:color-mix(in srgb,var(--accent) 3%,transparent)}
+.off{position:absolute;left:0;right:0;pointer-events:none;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--muted) 7%,transparent) 0 6px,transparent 6px 12px)}
+.ev{position:absolute;border:0;border-radius:8px;padding:3px 6px;font-size:12px;line-height:1.25;overflow:hidden;text-align:left;color:var(--text);
+  background:color-mix(in srgb,var(--c) 15%,var(--surface));box-shadow:inset 3px 0 0 var(--c),0 0 0 1px var(--surface);z-index:2;display:flex;flex-direction:column;gap:1px;min-width:0}
+.ev:hover{background:color-mix(in srgb,var(--c) 24%,var(--surface));z-index:4}
+.ev .n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:4px;align-items:center}
+.ev .s{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11.5px}
+.ev.inactive{opacity:.55}
+.ev.st-cancelled .n span{text-decoration:line-through}
+.ev.conflict{box-shadow:inset 3px 0 0 var(--c),inset 0 0 0 1.5px var(--warn),0 0 0 1px var(--surface)}
+.ev.short{flex-direction:row;align-items:center;gap:6px;padding-top:1px;padding-bottom:1px}
+.ev.short .s{display:none}
+.nowline{position:absolute;left:0;right:0;height:2px;background:var(--danger);z-index:3;pointer-events:none}
+.nowline::before{content:"";position:absolute;left:-5px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--danger)}
+@media (max-width:640px){
+  :root{--gut:42px}
+  .tg-time{right:5px;font-size:10px}
+  .tg-dh .dn{font-size:16px;line-height:26px;min-width:26px;height:26px}
+  .tg-dh .cnt{display:none}
+  .tg.week .ev{padding:2px 3px;font-size:10.5px}
+  .tg.week .ev .s{display:none}
+  .tg-scroll{max-height:calc(100vh - 230px)}
+}
+
+/* Upcoming */
+.side{display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel-h{display:flex;align-items:center;gap:8px;padding:14px 16px 10px}
+.panel-h h2{font-size:15px;margin:0;font-weight:650}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 16px 12px}
+.stat{background:var(--surface-2);border-radius:10px;padding:8px 10px}
+.stat b{display:block;font-size:18px;font-variant-numeric:tabular-nums}
+.stat span{font-size:11.5px;color:var(--muted)}
+.up-list{padding:0 8px 10px;max-height:calc(100vh - 290px);overflow:auto}
+@media (max-width:980px){.up-list{max-height:none}}
+.up-day{padding:8px 8px 4px;font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:flex;justify-content:space-between}
+.up-item{display:grid;grid-template-columns:4px 72px minmax(0,1fr);gap:10px;align-items:center;width:100%;border:0;background:transparent;text-align:left;padding:8px;border-radius:10px;color:var(--text)}
+.up-item:hover{background:var(--surface-2)}
+.up-item .bar{align-self:stretch;border-radius:4px;background:var(--c)}
+.up-item .tm{font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.3}
+.up-item .tm small{display:block;font-weight:400;color:var(--muted)}
+.up-item .who{min-width:0}
+.up-item .who b{display:flex;gap:5px;align-items:center;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.up-item .who .sub{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.up-item.past{opacity:.55}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+.empty svg.i{width:28px;height:28px;margin-bottom:6px;opacity:.6}
+.legend{display:flex;flex-wrap:wrap;gap:6px;padding:12px 16px 14px}
+
+/* Dialogs */
+dialog{border:0;padding:0;border-radius:18px;background:var(--surface);color:var(--text);box-shadow:0 24px 64px rgba(0,0,0,.28);width:min(580px,calc(100vw - 20px));max-height:calc(100vh - 20px);max-height:calc(100dvh - 20px)}
+dialog::backdrop{background:rgba(8,10,18,.48);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+dialog.wide{width:min(940px,calc(100vw - 20px))}
+dialog.narrow{width:min(420px,calc(100vw - 20px))}
+.dlg{display:flex;flex-direction:column;max-height:calc(100vh - 20px);max-height:calc(100dvh - 20px)}
+.dlg-h{display:flex;align-items:center;gap:8px;padding:14px 14px 14px 18px;border-bottom:1px solid var(--border)}
+.dlg-h h2{font-size:17px;margin:0;font-weight:650;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dlg-b{padding:16px 18px;overflow:auto;min-height:0}
+.dlg-f{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--border);flex-wrap:wrap;align-items:center}
+.dlg-f .spacer{display:block;flex:1}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 14px}
+.full{grid-column:1/-1}
+@media (max-width:560px){.grid2,.grid3{grid-template-columns:1fr}.grid3 .keep2{grid-column:auto}}
+.field label,.lbl-s{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px}
+.field .req{color:var(--danger)}
+input[type=text],input[type=tel],input[type=email],input[type=search],input[type=date],input[type=time],input[type=number],select,textarea{width:100%;height:40px;padding:0 11px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);min-width:0}
+textarea{height:auto;min-height:84px;padding:9px 11px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 20%,transparent)}
+input[aria-invalid=true]{border-color:var(--danger)}
+@media (max-width:640px){input,select,textarea{font-size:16px!important}}
+.hint{font-size:12.5px;color:var(--muted);margin-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.hint .linkbtn{border:0;background:none;color:var(--accent);padding:0;font-size:12.5px}
+.alert{display:flex;gap:10px;align-items:flex-start;background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:12px;padding:10px 12px;font-size:13px;margin-bottom:14px}
+.alert svg.i{color:var(--warn);margin-top:1px}
+.alert b{display:block;margin-bottom:2px}
+.alert ul{margin:4px 0 0;padding-left:18px}
+.alert .acts{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}
+.note{font-size:12.5px;color:var(--muted);background:var(--surface-2);border-radius:10px;padding:8px 11px;margin-bottom:14px}
+.err{color:var(--danger);font-size:12.5px;margin-top:5px}
+
+/* Autocomplete */
+.ac{position:relative}
+.ac-list{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:30;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);max-height:240px;overflow:auto;padding:4px}
+.ac-item{display:block;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;border-radius:8px;color:var(--text)}
+.ac-item small{display:block;color:var(--muted);font-size:12px}
+.ac-item[aria-selected=true],.ac-item:hover{background:var(--accent-weak)}
+
+/* Clients dialog */
+.cl{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:440px;height:min(640px,calc(100dvh - 90px))}
+.cl-list{border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:0}
+.cl-search{padding:12px;display:flex;gap:8px;border-bottom:1px solid var(--border-soft)}
+.cl-items{overflow:auto;padding:6px;flex:1;min-height:0}
+.cl-item{display:flex;gap:10px;align-items:center;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;border-radius:10px;color:var(--text)}
+.cl-item:hover{background:var(--surface-2)}
+.cl-item[aria-current=true]{background:var(--accent-weak)}
+.avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;flex:none;background:color-mix(in srgb,var(--accent) 16%,var(--surface));color:var(--accent)}
+.avatar.lg{width:46px;height:46px;font-size:16px}
+.cl-item .meta{min-width:0;flex:1}
+.cl-item .meta b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cl-item .meta small{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cl-item .ct{font-size:12px;color:var(--muted);flex:none}
+.cl-detail{overflow:auto;padding:18px;min-height:0}
+.cl-top{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+.cl-top h3{margin:0;font-size:18px}
+.cl-back{display:none}
+.hist{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+.hist .up-item{grid-template-columns:4px 110px minmax(0,1fr) auto}
+.section-t{font-size:13px;font-weight:700;margin:20px 0 6px;display:flex;align-items:center;justify-content:space-between}
+@media (max-width:700px){
+  .cl{grid-template-columns:1fr;height:calc(100dvh - 90px)}
+  .cl-list{border-right:0}
+  .cl.show-detail .cl-list{display:none}
+  .cl:not(.show-detail) .cl-detail{display:none}
+  .cl-back{display:inline-flex}
+  .hist .up-item{grid-template-columns:4px 92px minmax(0,1fr)}
+  .hist .up-item .badge{display:none}
+}
+
+/* Settings / backup */
+.days{display:flex;flex-wrap:wrap;gap:6px}
+.days label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:9px;padding:6px 10px;font-size:13px;cursor:pointer;user-select:none}
+.days input{accent-color:var(--accent);margin:0}
+.chk{display:flex;align-items:center;gap:8px;font-size:13.5px;margin:6px 0;cursor:pointer}
+.chk input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.bk{display:flex;flex-direction:column;gap:14px}
+.bk-row{border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.bk-row h3{margin:0 0 4px;font-size:14px}
+.bk-row p{margin:0 0 10px;font-size:13px;color:var(--muted)}
+.bk-row .btns{display:flex;gap:8px;flex-wrap:wrap}
+
+/* Toast */
+#toasts{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:1000;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:calc(100vw - 24px);max-width:420px}
+.toast{background:var(--text);color:var(--bg);padding:10px 14px;border-radius:12px;font-size:13.5px;box-shadow:0 10px 30px rgba(0,0,0,.25);animation:tin .18s ease-out;pointer-events:auto;text-align:center}
+.toast.bad{background:var(--danger);color:#fff}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.kbd{font-size:11.5px;color:var(--muted);padding:0 16px 14px}
+kbd{font:11px ui-monospace,Consolas,monospace;border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:0 5px;background:var(--surface-2)}
+</style>
+</head>
+<body>
+<div id="storageBanner" class="banner hidden" role="status"></div>
+
+<header class="topbar">
+  <div class="brand"><div class="logo" data-icon="cal"></div><span class="brand-text">Client Calendar</span></div>
+  <div class="navgrp">
+    <button class="btn icon" id="btnPrev" aria-label="Previous" title="Previous (←)" data-icon="chevL"></button>
+    <button class="btn" id="btnToday" title="Today (T)">Today</button>
+    <button class="btn icon" id="btnNext" aria-label="Next" title="Next (→)" data-icon="chevR"></button>
+    <h1 id="title" aria-live="polite"></h1>
+  </div>
+  <div class="spacer"></div>
+  <div class="seg" role="group" aria-label="Calendar view">
+    <button data-view="month" aria-pressed="false" title="Month (M)">Month</button>
+    <button data-view="week" aria-pressed="false" title="Week (W)">Week</button>
+    <button data-view="day" aria-pressed="false" title="Day (D)">Day</button>
+  </div>
+  <div class="actions">
+    <button class="btn ghost" id="btnClients" title="Clients (C)"><span data-icon="users"></span><span class="lbl">Clients</span></button>
+    <button class="btn ghost" id="btnSettings" title="Settings"><span data-icon="sliders"></span><span class="lbl">Settings</span></button>
+    <button class="btn ghost" id="btnBackup" title="Backup &amp; export"><span data-icon="download"></span><span class="lbl">Backup</span></button>
+    <button class="btn primary" id="btnNew" title="New appointment (N)"><span data-icon="plus"></span><span class="lbl">New</span></button>
+  </div>
+</header>
+
+<div class="layout">
+  <main id="cal" class="card" aria-label="Calendar"></main>
+  <aside class="side">
+    <section class="card" aria-labelledby="upTitle">
+      <div class="panel-h"><h2 id="upTitle">Upcoming</h2><span class="muted" style="font-size:12px">Today + next 7 days</span></div>
+      <div class="stats" id="upStats"></div>
+      <div class="up-list" id="upList"></div>
+    </section>
+    <section class="card">
+      <div class="panel-h"><h2>Status legend</h2></div>
+      <div class="legend" id="legend"></div>
+      <div class="kbd">Shortcuts: <kbd>N</kbd> new · <kbd>T</kbd> today · <kbd>M</kbd>/<kbd>W</kbd>/<kbd>D</kbd> views · <kbd>←</kbd><kbd>→</kbd> navigate · <kbd>C</kbd> clients</div>
+    </section>
+  </aside>
+</div>
+
+<!-- Appointment dialog -->
+<dialog id="dlgAppt" aria-labelledby="apptTitle">
+  <form class="dlg" id="apptForm" novalidate autocomplete="off">
+    <div class="dlg-h"><h2 id="apptTitle">New appointment</h2><button type="button" class="btn icon ghost" data-close aria-label="Close" data-icon="x"></button></div>
+    <div class="dlg-b">
+      <div id="apptConflict"></div>
+      <div class="grid2">
+        <div class="field full ac">
+          <label for="fName">Client name <span class="req">*</span></label>
+          <input type="text" id="fName" required placeholder="Start typing to find a client" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="acList">
+          <div class="ac-list hidden" id="acList" role="listbox"></div>
+          <div class="hint" id="fLinked"></div>
+          <div class="err hidden" id="errName">Please enter the client's name.</div>
+        </div>
+        <div class="field"><label for="fPhone">Phone</label><input type="tel" id="fPhone" placeholder="(555) 123-4567"></div>
+        <div class="field"><label for="fEmail">Email</label><input type="email" id="fEmail" placeholder="name@example.com"></div>
+        <div class="field full"><label for="fService">Service / type</label><input type="text" id="fService" list="serviceList" placeholder="e.g. Consultation"><datalist id="serviceList"></datalist></div>
+        <div class="field"><label for="fDate">Date <span class="req">*</span></label><input type="date" id="fDate" required></div>
+        <div class="field"><label for="fStart">Start time <span class="req">*</span></label><input type="time" id="fStart" required step="300"></div>
+        <div class="field"><label for="fDuration">Duration</label><select id="fDuration"></select></div>
+        <div class="field"><label for="fStatus">Status</label><select id="fStatus"></select></div>
+        <div class="full hint" id="fTimeInfo" style="margin-top:-4px"></div>
+        <div class="field full"><label for="fNotes">Notes</label><textarea id="fNotes" placeholder="Anything to remember for this visit"></textarea></div>
+      </div>
+    </div>
+    <div class="dlg-f">
+      <button type="button" class="btn danger" id="btnDelAppt">Delete</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn primary" id="btnSaveAppt">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Clients dialog -->
+<dialog id="dlgClients" class="wide" aria-labelledby="clTitle">
+  <div class="dlg">
+    <div class="dlg-h"><h2 id="clTitle">Clients</h2><button type="button" class="btn icon ghost" data-close aria-label="Close" data-icon="x"></button></div>
+    <div class="cl" id="clWrap">
+      <div class="cl-list">
+        <div class="cl-search">
+          <input type="search" id="clSearch" placeholder="Search name, phone, email" aria-label="Search clients">
+          <button class="btn icon" id="btnNewClient" title="Add client" aria-label="Add client" data-icon="plus"></button>
+        </div>
+        <div class="cl-items" id="clItems"></div>
+      </div>
+      <div class="cl-detail" id="clDetail"></div>
+    </div>
+  </div>
+</dialog>
+
+<!-- Settings dialog -->
+<dialog id="dlgSettings" aria-labelledby="setTitle">
+  <form class="dlg" id="setForm" novalidate>
+    <div class="dlg-h"><h2 id="setTitle">Settings</h2><button type="button" class="btn icon ghost" data-close aria-label="Close" data-icon="x"></button></div>
+    <div class="dlg-b">
+      <div class="grid2">
+        <div class="field"><label for="sStart">Working hours start</label><input type="time" id="sStart" step="900"></div>
+        <div class="field"><label for="sEnd">Working hours end</label><input type="time" id="sEnd" step="900"></div>
+        <div class="field"><label for="sDur">Default appointment length (min)</label><input type="number" id="sDur" min="5" max="720" step="5"></div>
+        <div class="field"><label for="sSlot">Time slot snapping</label>
+          <select id="sSlot"><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60">60 minutes</option></select></div>
+        <div class="field"><label for="sWeek">Week starts on</label>
+          <select id="sWeek"><option value="0">Sunday</option><option value="1">Monday</option></select></div>
+        <div class="field"><label for="sFmt">Time format</label>
+          <select id="sFmt"><option value="12">12-hour (2:30 PM)</option><option value="24">24-hour (14:30)</option></select></div>
+        <div class="field full"><span class="lbl-s">Working days</span><div class="days" id="sDays"></div></div>
+        <div class="field full"><label for="sServices">Services (one per line, used as suggestions)</label><textarea id="sServices" rows="4"></textarea></div>
+        <div class="err hidden full" id="setErr"></div>
+      </div>
+    </div>
+    <div class="dlg-f"><span class="spacer"></span><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn primary">Save settings</button></div>
+  </form>
+</dialog>
+
+<!-- Backup dialog -->
+<dialog id="dlgBackup" aria-labelledby="bkTitle">
+  <div class="dlg">
+    <div class="dlg-h"><h2 id="bkTitle">Backup &amp; export</h2><button type="button" class="btn icon ghost" data-close aria-label="Close" data-icon="x"></button></div>
+    <div class="dlg-b bk">
+      <div class="note" id="bkInfo"></div>
+      <div class="bk-row">
+        <h3>JSON backup</h3>
+        <p>Save everything (appointments, clients, settings) to a file, or restore from one. Your data lives only in this browser, so export regularly.</p>
+        <div class="btns">
+          <button class="btn primary" id="btnExportJson"><span data-icon="download"></span>Export JSON</button>
+          <button class="btn" id="btnImportJson"><span data-icon="upload"></span>Import JSON</button>
+          <input type="file" id="fileImport" accept=".json,application/json" class="hidden">
+        </div>
+      </div>
+      <div class="bk-row">
+        <h3>Calendar file (.ics)</h3>
+        <p>Import into Google Calendar, Apple Calendar or Outlook.</p>
+        <label class="chk"><input type="checkbox" id="icsPast"> Include past appointments</label>
+        <label class="chk"><input type="checkbox" id="icsCancelled"> Include cancelled / no-show</label>
+        <div class="btns" style="margin-top:8px"><button class="btn" id="btnExportIcs"><span data-icon="cal"></span>Export .ics</button></div>
+      </div>
+      <div class="bk-row">
+        <h3>Erase data</h3>
+        <p>Remove all appointments, clients and settings from this browser.</p>
+        <div class="btns"><button class="btn danger" id="btnErase">Erase all data…</button></div>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<!-- Confirm dialog -->
+<dialog id="dlgConfirm" class="narrow" aria-labelledby="cfTitle">
+  <div class="dlg">
+    <div class="dlg-h"><h2 id="cfTitle"></h2></div>
+    <div class="dlg-b" id="cfBody"></div>
+    <div class="dlg-f" id="cfBtns"></div>
+  </div>
+</dialog>
+
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- Constants & helpers ---------- */
+var STORE_KEY = 'clientCalendar.data.v1';
+var UI_KEY = 'clientCalendar.ui.v1';
+var STATUSES = [['booked','Booked'],['confirmed','Confirmed'],['completed','Completed'],['cancelled','Cancelled'],['no-show','No-show']];
+var STATUS_LABEL = {}; STATUSES.forEach(function(s){ STATUS_LABEL[s[0]] = s[1]; });
+var STATUS_KEYS = STATUSES.map(function(s){ return s[0]; });
+var INACTIVE = { 'cancelled':1, 'no-show':1 };
+var DEFAULT_SETTINGS = {
+  dayStart:'09:00', dayEnd:'17:00', defaultDuration:60, slotMinutes:30,
+  weekStart:0, timeFormat:'12', workDays:[1,2,3,4,5],
+  services:['Consultation','Follow-up','Standard session','Extended session']
+};
+var DURATIONS = [10,15,20,30,45,60,75,90,105,120,150,180,240,300,360,480];
+
+var ICONS = {
+  cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  chevL:'<path d="M15 18l-6-6 6-6"/>',
+  chevR:'<path d="M9 18l6-6-6-6"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  x:'<path d="M18 6L6 18M6 6l12 12"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  sliders:'<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>',
+  upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
+  alert:'<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  link:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'
+};
+function icon(name){ return '<svg class="i" viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[name]||'') + '</svg>'; }
+
+function $(s, r){ return (r||document).querySelector(s); }
+function $$(s, r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); }
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function str(v){ return v == null ? '' : String(v).trim(); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 9); }
+function pad(n){ return (n < 10 ? '0' : '') + n; }
+function ymd(d){ return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+function parseYmd(s){ var p = String(s).split('-').map(Number); return new Date(p[0], p[1]-1, p[2]); }
+function addDays(d, n){ return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+function today(){ var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function toMin(t){ var p = String(t||'0:0').split(':'); return (parseInt(p[0],10)||0)*60 + (parseInt(p[1],10)||0); }
+function fromMin(m){ m = Math.max(0, Math.min(1439, Math.round(m))); return pad(Math.floor(m/60)) + ':' + pad(m%60); }
+function nowMin(){ var d = new Date(); return d.getHours()*60 + d.getMinutes(); }
+function isTime(t){ return typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t); }
+function isDate(s){ return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(parseYmd(s).getTime()); }
+function digits(s){ return String(s||'').replace(/\D/g,''); }
+function initials(name){ var p = String(name||'?').trim().split(/\s+/); return ((p[0]||'?')[0] + (p.length > 1 ? p[p.length-1][0] : '')).toUpperCase(); }
+function isNarrow(){ return window.matchMedia('(max-width: 640px)').matches; }
+function clampDur(v){ var n = parseInt(v, 10); if (!(n >= 5)) n = 60; return Math.min(n, 1440); }
+
+function fmtTime(min, compact){
+  min = ((min % 1440) + 1440) % 1440;
+  var h = Math.floor(min/60), m = min % 60;
+  if (state.settings.timeFormat === '24') return pad(h) + ':' + pad(m);
+  var ap = h < 12 ? 'AM' : 'PM', h12 = h % 12 || 12;
+  if (compact) return h12 + (m ? ':' + pad(m) : '') + (h < 12 ? 'a' : 'p');
+  return h12 + ':' + pad(m) + ' ' + ap;
+}
+function fmtRange(a, compact){ var s = toMin(a.start); return fmtTime(s, compact) + ' – ' + fmtTime(s + a.duration, compact); }
+function fmtDur(n){ var h = Math.floor(n/60), m = n % 60; return ((h ? h + ' h' : '') + (h && m ? ' ' : '') + (m ? m + ' min' : '')) || '0 min'; }
+function fmtDate(ds, opts){ return parseYmd(ds).toLocaleDateString(undefined, opts); }
+function fmtDateShort(ds){ return fmtDate(ds, {weekday:'short', month:'short', day:'numeric'}); }
+function fmtDateMed(ds){ return fmtDate(ds, {weekday:'short', month:'short', day:'numeric', year:'numeric'}); }
+function endMin(a){ return toMin(a.start) + a.duration; }
+function cmpAppt(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : toMin(a.start) - toMin(b.start); }
+
+/* ---------- State & storage ---------- */
+var state = { appointments:[], clients:[], settings:copySettings(DEFAULT_SETTINGS), meta:{} };
+var storageOk = true;
+var view = 'month';
+var cur = today();
+
+function copySettings(s){ return JSON.parse(JSON.stringify(s)); }
+
+function normalize(d){
+  var out = { appointments:[], clients:[], settings:copySettings(DEFAULT_SETTINGS), meta:{} };
+  if (!d || typeof d !== 'object') return out;
+  var S = out.settings, s = d.settings;
+  if (s && typeof s === 'object'){
+    if (isTime(s.dayStart)) S.dayStart = s.dayStart;
+    if (isTime(s.dayEnd)) S.dayEnd = s.dayEnd;
+    if (toMin(S.dayEnd) <= toMin(S.dayStart)){ S.dayStart = DEFAULT_SETTINGS.dayStart; S.dayEnd = DEFAULT_SETTINGS.dayEnd; }
+    var dd = parseInt(s.defaultDuration, 10); if (dd >= 5 && dd <= 720) S.defaultDuration = dd;
+    if ([15,30,60].indexOf(+s.slotMinutes) >= 0) S.slotMinutes = +s.slotMinutes;
+    if (+s.weekStart === 0 || +s.weekStart === 1) S.weekStart = +s.weekStart;
+    if (s.timeFormat === '12' || s.timeFormat === '24') S.timeFormat = s.timeFormat;
+    if (Array.isArray(s.workDays)) S.workDays = s.workDays.map(Number).filter(function(n){ return n >= 0 && n <= 6; });
+    if (Array.isArray(s.services)) S.services = s.services.map(str).filter(Boolean).slice(0, 200);
+  }
+  if (d.meta && typeof d.meta === 'object') out.meta = { lastExport: str(d.meta.lastExport) };
+  var seenC = {};
+  if (Array.isArray(d.clients)) d.clients.forEach(function(c){
+    if (!c || !str(c.name)) return;
+    var id = str(c.id) || uid(); if (seenC[id]) id = uid(); seenC[id] = 1;
+    out.clients.push({ id:id, name:str(c.name), phone:str(c.phone), email:str(c.email), notes:str(c.notes), createdAt:str(c.createdAt) || new Date().toISOString() });
+  });
+  var seenA = {};
+  if (Array.isArray(d.appointments)) d.appointments.forEach(function(a){
+    if (!a) return;
+    var start = str(a.start).slice(0,5);
+    if (!isDate(a.date) || !isTime(start)) return;
+    var id = str(a.id) || uid(); if (seenA[id]) id = uid(); seenA[id] = 1;
+    var dur = clampDur(a.duration);
+    if (toMin(start) + dur > 1440) dur = 1440 - toMin(start);
+    out.appointments.push({
+      id:id, clientId: a.clientId && seenC[String(a.clientId)] ? String(a.clientId) : null,
+      clientName:str(a.clientName) || 'Unnamed client', phone:str(a.phone), email:str(a.email),
+      service:str(a.service), date:a.date, start:start, duration:dur, notes:str(a.notes),
+      status: STATUS_KEYS.indexOf(a.status) >= 0 ? a.status : 'booked',
+      createdAt:str(a.createdAt) || new Date().toISOString(), updatedAt:str(a.updatedAt) || new Date().toISOString()
+    });
+  });
+  return out;
+}
+
+function load(){
+  try {
+    var raw = window.localStorage.getItem(STORE_KEY);
+    if (raw) state = normalize(JSON.parse(raw));
+  } catch (e) { storageOk = false; }
+  try {
+    var ui = JSON.parse(window.localStorage.getItem(UI_KEY) || 'null');
+    if (ui && ['month','week','day'].indexOf(ui.view) >= 0) view = ui.view;
+    else if (isNarrow()) view = 'day';
+  } catch (e) { if (isNarrow()) view = 'day'; }
+}
+function save(){
+  try {
+    window.localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    if (!storageOk){ storageOk = true; updateBanner(); }
+    return true;
+  } catch (e) {
+    storageOk = false; updateBanner();
+    toast('Could not save to browser storage. Export a JSON backup to keep your data.', true);
+    return false;
+  }
+}
+function saveUi(){ try { window.localStorage.setItem(UI_KEY, JSON.stringify({ view:view })); } catch (e) {} }
+function updateBanner(){
+  var b = $('#storageBanner');
+  if (storageOk){ b.classList.add('hidden'); return; }
+  b.innerHTML = icon('alert') + '<span>Browser storage is unavailable (private mode or blocked site data). Changes will be lost when you close this page — use <b>Backup → Export JSON</b> to keep them.</span>';
+  b.classList.remove('hidden');
+}
+
+/* ---------- Domain logic ---------- */
+function apptsOn(ds){ return state.appointments.filter(function(a){ return a.date === ds; }).sort(cmpAppt); }
+function getAppt(id){ for (var i = 0; i < state.appointments.length; i++) if (state.appointments[i].id === id) return state.appointments[i]; return null; }
+function getClient(id){ for (var i = 0; i < state.clients.length; i++) if (state.clients[i].id === id) return state.clients[i]; return null; }
+function isWorkDay(d){ return state.settings.workDays.indexOf(d.getDay()) >= 0; }
+function startOfWeek(d){ return addDays(d, -((d.getDay() - state.settings.weekStart + 7) % 7)); }
+function overlaps(a, b){ return a.date === b.date && toMin(a.start) < endMin(b) && toMin(b.start) < endMin(a); }
+function findConflicts(appt, excludeId){
+  if (INACTIVE[appt.status]) return [];
+  return state.appointments.filter(function(o){ return o.id !== excludeId && !INACTIVE[o.status] && overlaps(appt, o); }).sort(cmpAppt);
+}
+function computeConflicts(){
+  var set = {}, byDate = {};
+  state.appointments.forEach(function(a){ if (!INACTIVE[a.status]) (byDate[a.date] = byDate[a.date] || []).push(a); });
+  Object.keys(byDate).forEach(function(k){
+    var arr = byDate[k].sort(cmpAppt);
+    for (var i = 0; i < arr.length; i++) for (var j = i+1; j < arr.length; j++){
+      if (toMin(arr[j].start) >= endMin(arr[i])) break;
+      set[arr[i].id] = 1; set[arr[j].id] = 1;
+    }
+  });
+  return set;
+}
+function nextFreeSlot(ds, duration, fromM, excludeId){
+  var S = state.settings, slot = S.slotMinutes;
+  var ws = toMin(S.dayStart), we = toMin(S.dayEnd);
+  var t = Math.max(ws, Math.ceil((fromM || 0) / slot) * slot);
+  for (; t + duration <= we; t += slot){
+    if (!findConflicts({ date:ds, start:fromMin(t), duration:duration, status:'booked' }, excludeId).length) return t;
+  }
+  return null;
+}
+function clientStats(){
+  var m = {};
+  state.appointments.forEach(function(a){
+    if (!a.clientId) return;
+    var s = m[a.clientId] || (m[a.clientId] = { total:0, next:null, last:null });
+    s.total++;
+    var key = a.date + ' ' + a.start, nowKey = ymd(today()) + ' ' + fromMin(nowMin());
+    if (key >= nowKey && !INACTIVE[a.status]){ if (!s.next || key < s.next) s.next = key; }
+    else if (key < nowKey){ if (!s.last || key > s.last) s.last = key; }
+  });
+  return m;
+}
+function findClientMatch(name, phone, email){
+  var n = name.toLowerCase(), p = digits(phone), e = email.toLowerCase();
+  var byEmail = null, byPhone = null, byName = null;
+  state.clients.forEach(function(c){
+    if (e && c.email && c.email.toLowerCase() === e && !byEmail) byEmail = c;
+    if (p.length >= 7 && digits(c.phone) === p && !byPhone) byPhone = c;
+    if (c.name.toLowerCase() === n && !byName) byName = c;
+  });
+  // Prefer contact matches only when the name also agrees; otherwise a same-name match
+  var cands = [byEmail, byPhone].filter(Boolean);
+  for (var i = 0; i < cands.length; i++) if (cands[i].name.toLowerCase() === n) return cands[i];
+  return byName;
+}
+function upsertClient(name, phone, email, linkedId){
+  var c = linkedId ? getClient(linkedId) : null;
+  if (!c) c = findClientMatch(name, phone, email);
+  if (c){
+    c.name = name;
+    if (phone) c.phone = phone;
+    if (email) c.email = email;
+    return c;
+  }
+  c = { id:uid(), name:name, phone:phone, email:email, notes:'', createdAt:new Date().toISOString() };
+  state.clients.push(c);
+  return c;
+}
+
+/* ---------- Toast & confirm ---------- */
+function toast(msg, bad){
+  var t = document.createElement('div');
+  t.className = 'toast' + (bad ? ' bad' : '');
+  t.textContent = msg;
+  $('#toasts').appendChild(t);
+  setTimeout(function(){ t.style.opacity = '0'; t.style.transition = 'opacity .3s'; }, 2800);
+  setTimeout(function(){ if (t.parentNode) t.parentNode.removeChild(t); }, 3200);
+}
+function confirmDlg(opts){
+  return new Promise(function(resolve){
+    var dlg = $('#dlgConfirm');
+    $('#cfTitle').textContent = opts.title || 'Are you sure?';
+    $('#cfBody').innerHTML = opts.html || ('<p style="margin:0">' + esc(opts.message || '') + '</p>');
+    var btns = opts.buttons || [{ label:'Cancel', value:false }, { label:'OK', value:true, cls:'primary' }];
+    var box = $('#cfBtns'); box.innerHTML = '<span class="spacer"></span>';
+    var done = false;
+    function finish(v){ if (done) return; done = true; if (dlg.open) dlg.close(); resolve(v); }
+    btns.forEach(function(b){
+      var el = document.createElement('button');
+      el.type = 'button'; el.className = 'btn ' + (b.cls || ''); el.textContent = b.label;
+      el.addEventListener('click', function(){ finish(b.value); });
+      box.appendChild(el);
+    });
+    dlg.onclose = function(){ finish(opts.cancelValue !== undefined ? opts.cancelValue : false); };
+    dlg.showModal();
+    var last = box.lastElementChild; if (last) last.focus();
+  });
+}
+
+/* ---------- Rendering: header ---------- */
+function renderTitle(){
+  var t = '';
+  if (view === 'month') t = cur.toLocaleDateString(undefined, { month:'long', year:'numeric' });
+  else if (view === 'day') t = cur.toLocaleDateString(undefined, { weekday: isNarrow() ? 'short' : 'long', month:'short', day:'numeric', year:'numeric' });
+  else {
+    var s = startOfWeek(cur), e = addDays(s, 6);
+    if (s.getFullYear() !== e.getFullYear())
+      t = s.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }) + ' – ' + e.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
+    else if (s.getMonth() !== e.getMonth())
+      t = s.toLocaleDateString(undefined, { month:'short', day:'numeric' }) + ' – ' + e.toLocaleDateString(undefined, { month:'short', day:'numeric' }) + ', ' + e.getFullYear();
+    else
+      t = s.toLocaleDateString(undefined, { month:'short', day:'numeric' }) + ' – ' + e.getDate() + ', ' + e.getFullYear();
+  }
+  $('#title').textContent = t;
+  document.title = 'Client Calendar · ' + t;
+  $$('.seg button').forEach(function(b){ b.setAttribute('aria-pressed', String(b.dataset.view === view)); });
+}
+
+function render(){
+  renderTitle();
+  renderCalendar();
+  renderUpcoming();
+  saveUi();
+}
+
+/* ---------- Rendering: month ---------- */
+function chipHtml(a, conf, hidden){
+  var cls = 'chip st-' + a.status + (INACTIVE[a.status] ? ' inactive' : '') + (conf[a.id] ? ' conflict' : '') + (hidden ? ' x' : '');
+  var label = a.clientName + (a.service ? ' · ' + a.service : '');
+  return '<button type="button" class="' + cls + '" data-id="' + esc(a.id) + '" title="' + esc(fmtRange(a) + ' ' + label + ' (' + STATUS_LABEL[a.status] + ')' + (conf[a.id] ? ' — overlaps another appointment' : '')) + '">' +
+    '<span class="t">' + esc(fmtTime(toMin(a.start), true)) + '</span><span class="n">' + esc(a.clientName) + '</span></button>';
+}
+function renderMonth(conf){
+  var y = cur.getFullYear(), m = cur.getMonth();
+  var first = new Date(y, m, 1), start = startOfWeek(first);
+  var daysInMonth = new Date(y, m+1, 0).getDate();
+  var lead = Math.round((first - start) / 86400000);
+  var weeks = Math.ceil((lead + daysInMonth) / 7);
+  var tdy = ymd(today()), narrow = isNarrow();
+  var h = '<div class="month" role="grid">';
+  for (var i = 0; i < 7; i++){
+    var dd = addDays(start, i);
+    h += '<div class="m-dow" role="columnheader">' + esc(dd.toLocaleDateString(undefined, { weekday: narrow ? 'narrow' : 'short' })) + '</div>';
+  }
+  for (i = 0; i < weeks * 7; i++){
+    var d = addDays(start, i), ds = ymd(d), list = apptsOn(ds);
+    var cls = ['m-cell'];
+    if (d.getMonth() !== m) cls.push('other');
+    if (ds === tdy) cls.push('today');
+    if (!isWorkDay(d)) cls.push('nonwork');
+    var aria = fmtDateMed(ds) + (list.length ? ', ' + list.length + ' appointment' + (list.length > 1 ? 's' : '') : '');
+    h += '<div class="' + cls.join(' ') + '" data-date="' + ds + '" role="gridcell">' +
+      '<button type="button" class="m-num" data-goto="' + ds + '" aria-label="' + esc(aria) + ' — open day">' + d.getDate() + '</button><div class="m-events">';
+    for (var k = 0; k < list.length; k++) h += chipHtml(list[k], conf, k >= 3);
+    if (list.length > 3) h += '<button type="button" class="more" data-goto="' + ds + '">+' + (list.length - 3) + ' more</button>';
+    h += '</div></div>';
+  }
+  return h + '</div>';
+}
+
+/* ---------- Rendering: week/day time grid ---------- */
+function layoutDay(list){
+  var res = [], cluster = [], lanes = [], clusterEnd = -1;
+  function flush(){ var n = lanes.length; cluster.forEach(function(o){ o.n = n; }); cluster = []; lanes = []; clusterEnd = -1; }
+  list.forEach(function(a){
+    var s = toMin(a.start), e = s + Math.max(a.duration, 20);
+    if (cluster.length && s >= clusterEnd) flush();
+    var lane = -1;
+    for (var i = 0; i < lanes.length; i++) if (lanes[i] <= s){ lane = i; break; }
+    if (lane < 0){ lane = lanes.length; lanes.push(e); } else lanes[lane] = e;
+    var o = { a:a, s:s, e:e, lane:lane, n:1 };
+    cluster.push(o); res.push(o);
+    clusterEnd = Math.max(clusterEnd, e);
+  });
+  flush();
+  return res;
+}
+var gridKey = '';
+function renderTimeGrid(days, conf){
+  var S = state.settings, hourPx = 52, ppm = hourPx / 60;
+  var ws = toMin(S.dayStart), we = toMin(S.dayEnd);
+  var rs = Math.floor(ws / 60) * 60, re = Math.ceil(we / 60) * 60;
+  var perDay = days.map(function(d){ return apptsOn(ymd(d)); });
+  perDay.forEach(function(list){ list.forEach(function(a){
+    rs = Math.min(rs, Math.floor(toMin(a.start) / 60) * 60);
+    re = Math.max(re, Math.min(1440, Math.ceil(endMin(a) / 60) * 60));
+  }); });
+  var tdy = ymd(today()), nm = nowMin(), narrow = isNarrow(), isWeek = days.length > 1;
+  var h = '<div class="tg ' + (isWeek ? 'week' : 'day') + '" style="--cols:' + days.length + '"><div class="tg-head"><div></div>';
+  days.forEach(function(d, i){
+    var ds = ymd(d), n = perDay[i].filter(function(a){ return !INACTIVE[a.status]; }).length;
+    h += '<button type="button" class="tg-dh' + (ds === tdy ? ' today' : '') + '" data-goto="' + ds + '" aria-label="' + esc(fmtDateMed(ds)) + ' — open day">' +
+      '<span class="dow">' + esc(d.toLocaleDateString(undefined, { weekday: narrow && isWeek ? 'narrow' : 'short' })) + '</span>' +
+      '<span class="dn">' + d.getDate() + '</span>' +
+      '<span class="cnt">' + (n ? n + ' appt' + (n > 1 ? 's' : '') : '&nbsp;') + '</span></button>';
+  });
+  h += '</div><div class="tg-scroll"><div class="tg-body" style="height:' + ((re - rs) * ppm) + 'px"><div class="tg-times">';
+  for (var t = rs; t < re; t += 60){
+    h += '<div class="tg-time' + (t === rs ? ' first' : '') + '" style="top:' + ((t - rs) * ppm) + 'px">' + esc(fmtTime(t, true)) + '</div>';
+  }
+  h += '</div>';
+  days.forEach(function(d, i){
+    var ds = ymd(d);
+    h += '<div class="tg-col' + (ds === tdy ? ' today' : '') + '" data-date="' + ds + '" data-rs="' + rs + '" data-ppm="' + ppm + '" title="Click an empty time to book">';
+    if (!isWorkDay(d)) h += '<div class="off" style="top:0;bottom:0"></div>';
+    else {
+      if (ws > rs) h += '<div class="off" style="top:0;height:' + ((ws - rs) * ppm) + 'px"></div>';
+      if (we < re) h += '<div class="off" style="top:' + ((we - rs) * ppm) + 'px;bottom:0"></div>';
+    }
+    layoutDay(perDay[i]).forEach(function(o){
+      var a = o.a, top = (o.s - rs) * ppm, ht = Math.max(a.duration * ppm - 2, 18);
+      var w = 100 / o.n, left = o.lane * w;
+      var short = ht < 38;
+      var cls = 'ev st-' + a.status + (INACTIVE[a.status] ? ' inactive' : '') + (conf[a.id] ? ' conflict' : '') + (short ? ' short' : '');
+      var tip = fmtRange(a) + ' · ' + a.clientName + (a.service ? ' · ' + a.service : '') + ' (' + STATUS_LABEL[a.status] + ')' + (conf[a.id] ? ' — overlaps another appointment' : '');
+      h += '<button type="button" class="' + cls + '" data-id="' + esc(a.id) + '" style="top:' + top + 'px;height:' + ht + 'px;left:calc(' + left + '% + 2px);width:calc(' + w + '% - 4px)" title="' + esc(tip) + '">' +
+        '<span class="n">' + (conf[a.id] ? '<span class="warnflag" style="text-decoration:none">' + icon('alert') + '</span>' : '') + '<span>' + esc(a.clientName) + '</span></span>' +
+        '<span class="s">' + esc(fmtRange(a, true) + (a.service ? ' · ' + a.service : '')) + '</span></button>';
+    });
+    if (ds === tdy && nm >= rs && nm <= re) h += '<div class="nowline" style="top:' + ((nm - rs) * ppm) + 'px"></div>';
+    h += '</div>';
+  });
+  h += '</div></div></div>';
+  return { html:h, rs:rs, ppm:ppm, ws:ws };
+}
+
+function renderCalendar(){
+  var el = $('#cal'), conf = computeConflicts();
+  var oldScroll = $('.tg-scroll', el), oldTop = oldScroll ? oldScroll.scrollTop : 0;
+  if (view === 'month'){ el.innerHTML = renderMonth(conf); gridKey = ''; return; }
+  var days = [];
+  if (view === 'week'){ var s = startOfWeek(cur); for (var i = 0; i < 7; i++) days.push(addDays(s, i)); }
+  else days.push(cur);
+  var g = renderTimeGrid(days, conf);
+  el.innerHTML = g.html;
+  var key = view + '|' + ymd(days[0]);
+  var sc = $('.tg-scroll', el);
+  if (key === gridKey && oldScroll) sc.scrollTop = oldTop;
+  else {
+    var target = g.ws;
+    var tdyIn = days.some(function(d){ return ymd(d) === ymd(today()); });
+    if (tdyIn) { var nm = nowMin(); if (nm > g.ws + 120) target = nm - 90; }
+    sc.scrollTop = Math.max(0, (target - g.rs) * g.ppm - 8);
+  }
+  gridKey = key;
+}
+
+/* ---------- Rendering: upcoming ---------- */
+function upItemHtml(a, conf, opts){
+  opts = opts || {};
+  var past = a.date < ymd(today()) || (a.date === ymd(today()) && endMin(a) <= nowMin());
+  var sub = a.service ? [a.service] : [];
+  return '<button type="button" class="up-item st-' + a.status + (past && opts.dimPast !== false ? ' past' : '') + '" data-id="' + esc(a.id) + '">' +
+    '<span class="bar"></span>' +
+    '<span class="tm">' + (opts.showDate ? esc(fmtDateMed(a.date)) + '<small>' + esc(fmtRange(a)) + '</small>' : esc(fmtTime(toMin(a.start))) + '<small>' + esc(fmtDur(a.duration)) + '</small>') + '</span>' +
+    '<span class="who"><b>' + (conf[a.id] ? '<span class="warnflag" title="Overlaps another appointment">' + icon('alert') + '</span>' : '') + esc(opts.hideName ? (a.service || 'Appointment') : a.clientName) + '</b>' +
+    '<span class="sub"><span class="badge">' + esc(STATUS_LABEL[a.status]) + '</span>' + (!opts.hideName && sub.length ? esc(sub.join(' · ')) : (opts.hideName && a.notes ? esc(a.notes.slice(0, 60)) : '')) + '</span></span>' +
+    (opts.extra || '') + '</button>';
+}
+function renderUpcoming(){
+  var t = today(), from = ymd(t), to = ymd(addDays(t, 7)), conf = computeConflicts();
+  var list = state.appointments.filter(function(a){ return a.date >= from && a.date <= to && a.status !== 'cancelled'; }).sort(cmpAppt);
+  var todays = list.filter(function(a){ return a.date === from && !INACTIVE[a.status]; });
+  var toConfirm = list.filter(function(a){ return a.status === 'booked'; }).length;
+  var nConf = list.filter(function(a){ return conf[a.id]; }).length;
+  $('#upStats').innerHTML =
+    '<div class="stat"><b>' + todays.length + '</b><span>Today</span></div>' +
+    '<div class="stat"><b>' + list.filter(function(a){ return !INACTIVE[a.status]; }).length + '</b><span>Next 8 days</span></div>' +
+    '<div class="stat" title="Booked but not yet confirmed"><b>' + toConfirm + '</b><span>To confirm</span></div>' +
+    (nConf ? '<div class="stat full" style="grid-column:1/-1;background:var(--warn-bg);display:flex;gap:8px;align-items:center"><span class="warnflag">' + icon('alert') + '</span><span style="color:var(--text);font-size:12.5px">' + nConf + ' appointment' + (nConf > 1 ? 's overlap' : ' overlaps') + ' another booking</span></div>' : '');
+  if (!list.length){
+    $('#upList').innerHTML = '<div class="empty">' + icon('cal') + '<div>No appointments in the next 7 days.</div><div style="margin-top:10px"><button class="btn sm primary" type="button" data-new>Book a client</button></div></div>';
+    return;
+  }
+  var h = '', lastDate = '';
+  var tomorrow = ymd(addDays(t, 1));
+  list.forEach(function(a){
+    if (a.date !== lastDate){
+      lastDate = a.date;
+      var label = a.date === from ? 'Today' : a.date === tomorrow ? 'Tomorrow' : fmtDate(a.date, { weekday:'long' });
+      var n = list.filter(function(x){ return x.date === a.date; }).length;
+      h += '<div class="up-day"><span>' + esc(label) + ' · ' + esc(fmtDate(a.date, { month:'short', day:'numeric' })) + '</span><span>' + n + '</span></div>';
+    }
+    h += upItemHtml(a, conf);
+  });
+  $('#upList').innerHTML = h;
+}
+function renderLegend(){
+  $('#legend').innerHTML = STATUSES.map(function(s){ return '<span class="badge st-' + s[0] + '">' + s[1] + '</span>'; }).join('') +
+    '<span class="badge" style="--c:var(--warn)">Overlap warning</span>';
+}
+
+/* ---------- Appointment dialog ---------- */
+var editingId = null, linkedClientId = null, acIndex = -1, acItems = [];
+var dlgAppt = $('#dlgAppt');
+
+function buildDurationOptions(selected){
+  var opts = DURATIONS.slice();
+  if (opts.indexOf(selected) < 0) opts.push(selected);
+  if (opts.indexOf(state.settings.defaultDuration) < 0) opts.push(state.settings.defaultDuration);
+  opts.sort(function(a, b){ return a - b; });
+  $('#fDuration').innerHTML = opts.map(function(n){ return '<option value="' + n + '"' + (n === selected ? ' selected' : '') + '>' + fmtDur(n) + '</option>'; }).join('');
+}
+function buildServiceList(){
+  var set = {};
+  state.settings.services.forEach(function(s){ set[s] = 1; });
+  state.appointments.forEach(function(a){ if (a.service) set[a.service] = 1; });
+  $('#serviceList').innerHTML = Object.keys(set).sort().map(function(s){ return '<option value="' + esc(s) + '"></option>'; }).join('');
+}
+function setLinked(id){
+  linkedClientId = id;
+  var c = id ? getClient(id) : null, el = $('#fLinked');
+  if (c){
+    var n = state.appointments.filter(function(a){ return a.clientId === c.id && a.id !== editingId; }).length;
+    el.innerHTML = icon('link') + '<span>Existing client' + (n ? ' · ' + n + ' other appointment' + (n > 1 ? 's' : '') : '') + '</span><button type="button" class="linkbtn" id="btnUnlink">Unlink</button>';
+  } else {
+    var name = str($('#fName').value);
+    el.innerHTML = name ? '<span>A new client record will be saved automatically.</span>' : '';
+  }
+}
+function openAppt(id){
+  var a = getAppt(id); if (!a) return;
+  editingId = id;
+  $('#apptTitle').textContent = 'Edit appointment';
+  $('#fName').value = a.clientName; $('#fPhone').value = a.phone; $('#fEmail').value = a.email;
+  $('#fService').value = a.service; $('#fDate').value = a.date; $('#fStart').value = a.start;
+  buildDurationOptions(a.duration);
+  $('#fStatus').value = a.status; $('#fNotes').value = a.notes;
+  $('#btnDelAppt').classList.remove('hidden');
+  showApptDialog();
+  setLinked(a.clientId && getClient(a.clientId) ? a.clientId : null);
+}
+function openNew(pre){
+  pre = pre || {};
+  editingId = null;
+  var S = state.settings;
+  var tdyStr = ymd(today());
+  var ds = pre.date || (view === 'day' && ymd(cur) >= tdyStr ? ymd(cur) : tdyStr);
+  var dur = S.defaultDuration;
+  var startM;
+  if (pre.start) startM = toMin(pre.start);
+  else {
+    var free = nextFreeSlot(ds, dur, ds === tdyStr ? nowMin() : 0, null);
+    if (free == null && !pre.date){
+      // Nothing left on that day: look ahead for the next working day with an opening
+      for (var i = 1; i <= 30 && free == null; i++){
+        var d = addDays(parseYmd(ds), i);
+        if (!isWorkDay(d)) continue;
+        free = nextFreeSlot(ymd(d), dur, 0, null);
+        if (free != null) ds = ymd(d);
+      }
+    }
+    startM = free != null ? free : toMin(S.dayStart);
+  }
+  if (startM + dur > 1440) dur = Math.max(5, 1440 - startM);
+  $('#apptTitle').textContent = 'New appointment';
+  $('#fName').value = ''; $('#fPhone').value = ''; $('#fEmail').value = '';
+  $('#fService').value = ''; $('#fDate').value = ds; $('#fStart').value = fromMin(startM);
+  buildDurationOptions(dur);
+  $('#fStatus').value = 'booked'; $('#fNotes').value = '';
+  $('#btnDelAppt').classList.add('hidden');
+  showApptDialog();
+  if (pre.client) pickClient(pre.client, true); else setLinked(null);
+}
+function showApptDialog(){
+  buildServiceList();
+  hideAc();
+  $('#errName').classList.add('hidden'); $('#fName').removeAttribute('aria-invalid');
+  if (!dlgAppt.open) dlgAppt.showModal();
+  updateFormInfo();
+  if (!editingId && !linkedClientId) setTimeout(function(){ $('#fName').focus(); }, 30);
+}
+function readForm(){
+  return {
+    clientName:str($('#fName').value), phone:str($('#fPhone').value), email:str($('#fEmail').value),
+    service:str($('#fService').value), date:$('#fDate').value, start:String($('#fStart').value || '').slice(0,5),
+    duration:clampDur($('#fDuration').value), status:$('#fStatus').value, notes:str($('#fNotes').value)
+  };
+}
+function updateFormInfo(){
+  var v = readForm(), info = $('#fTimeInfo'), box = $('#apptConflict');
+  if (!isDate(v.date) || !isTime(v.start)){ info.innerHTML = ''; box.innerHTML = ''; return; }
+  var s = toMin(v.start), e = s + v.duration, S = state.settings, notes = [];
+  notes.push(icon('clock') + '<span>' + esc(fmtDateShort(v.date)) + ', ' + esc(fmtTime(s)) + ' – ' + esc(fmtTime(e)) + '</span>');
+  if (e > 1440) notes.push('<span style="color:var(--danger)">Runs past midnight — shorten the duration.</span>');
+  else if (!isWorkDay(parseYmd(v.date))) notes.push('<span>· Not a working day</span>');
+  else if (s < toMin(S.dayStart) || e > toMin(S.dayEnd)) notes.push('<span>· Outside working hours (' + esc(fmtTime(toMin(S.dayStart))) + '–' + esc(fmtTime(toMin(S.dayEnd))) + ')</span>');
+  info.innerHTML = notes.join('');
+  var conflicts = findConflicts(v, editingId);
+  if (!conflicts.length){ box.innerHTML = ''; return; }
+  var free = nextFreeSlot(v.date, v.duration, s, editingId);
+  box.innerHTML = '<div class="alert" role="alert">' + icon('alert') + '<div><b>Double booking</b>This time overlaps with:' +
+    '<ul>' + conflicts.map(function(c){ return '<li>' + esc(fmtRange(c)) + ' — ' + esc(c.clientName) + (c.service ? ' (' + esc(c.service) + ')' : '') + '</li>'; }).join('') + '</ul>' +
+    (free != null ? '<div class="acts"><button type="button" class="btn sm" id="btnUseFree" data-t="' + fromMin(free) + '">Move to next free time: ' + esc(fmtTime(free)) + '</button></div>' : '<div class="acts muted">No free slot left on this day within working hours.</div>') +
+    '</div></div>';
+}
+async function saveAppt(){
+  var v = readForm();
+  if (!v.clientName){
+    $('#errName').classList.remove('hidden'); $('#fName').setAttribute('aria-invalid', 'true'); $('#fName').focus(); return;
+  }
+  if (!isDate(v.date)){ toast('Please choose a valid date.', true); $('#fDate').focus(); return; }
+  if (!isTime(v.start)){ toast('Please choose a valid start time.', true); $('#fStart').focus(); return; }
+  if (toMin(v.start) + v.duration > 1440){ toast('The appointment would run past midnight. Shorten the duration.', true); return; }
+  if (STATUS_KEYS.indexOf(v.status) < 0) v.status = 'booked';
+  var conflicts = findConflicts(v, editingId);
+  if (conflicts.length){
+    var ok = await confirmDlg({
+      title:'Book anyway?',
+      html:'<p style="margin:0 0 8px">This appointment overlaps with:</p><ul style="margin:0;padding-left:18px">' +
+        conflicts.map(function(c){ return '<li>' + esc(fmtRange(c)) + ' — ' + esc(c.clientName) + '</li>'; }).join('') + '</ul>',
+      buttons:[{ label:'Go back', value:false }, { label:'Double-book', value:true, cls:'danger-solid' }]
+    });
+    if (!ok) return;
+  }
+  var c = upsertClient(v.clientName, v.phone, v.email, linkedClientId);
+  var nowIso = new Date().toISOString();
+  var rec = { clientId:c.id, clientName:c.name, phone:v.phone || c.phone, email:v.email || c.email, service:v.service,
+    date:v.date, start:v.start, duration:v.duration, status:v.status, notes:v.notes, updatedAt:nowIso };
+  if (editingId){
+    var a = getAppt(editingId);
+    if (a) Object.keys(rec).forEach(function(k){ a[k] = rec[k]; });
+  } else {
+    rec.id = uid(); rec.createdAt = nowIso;
+    state.appointments.push(rec);
+  }
+  save();
+  var wasEdit = !!editingId;
+  dlgAppt.close();
+  render();
+  refreshClientsIfOpen();
+  toast(wasEdit ? 'Appointment updated' : 'Booked ' + c.name + ' · ' + fmtDateShort(v.date) + ' ' + fmtTime(toMin(v.start)));
+}
+async function deleteAppt(){
+  var a = getAppt(editingId); if (!a) return;
+  var ok = await confirmDlg({ title:'Delete appointment?', message:a.clientName + ' — ' + fmtDateMed(a.date) + ', ' + fmtRange(a) + '. Tip: you can set the status to Cancelled instead to keep a record.',
+    buttons:[{ label:'Keep', value:false }, { label:'Delete', value:true, cls:'danger-solid' }] });
+  if (!ok) return;
+  state.appointments = state.appointments.filter(function(x){ return x.id !== a.id; });
+  save(); dlgAppt.close(); render(); refreshClientsIfOpen();
+  toast('Appointment deleted');
+}
+
+/* Autocomplete */
+function showAc(){
+  var q = str($('#fName').value).toLowerCase(), qd = digits(q);
+  if (!q){ hideAc(); return; }
+  acItems = state.clients.filter(function(c){
+    return c.name.toLowerCase().indexOf(q) >= 0 || (c.email && c.email.toLowerCase().indexOf(q) >= 0) || (qd.length >= 3 && digits(c.phone).indexOf(qd) >= 0);
+  }).sort(function(a, b){
+    var as = a.name.toLowerCase().indexOf(q) === 0 ? 0 : 1, bs = b.name.toLowerCase().indexOf(q) === 0 ? 0 : 1;
+    return as - bs || a.name.localeCompare(b.name);
+  }).slice(0, 8);
+  if (!acItems.length || (acItems.length === 1 && acItems[0].id === linkedClientId && acItems[0].name.toLowerCase() === q)){ hideAc(); return; }
+  acIndex = -1;
+  var list = $('#acList');
+  list.innerHTML = acItems.map(function(c, i){
+    return '<button type="button" class="ac-item" role="option" data-i="' + i + '" aria-selected="false"><b>' + esc(c.name) + '</b><small>' + esc([c.phone, c.email].filter(Boolean).join(' · ') || 'No contact details') + '</small></button>';
+  }).join('');
+  list.classList.remove('hidden');
+  $('#fName').setAttribute('aria-expanded', 'true');
+}
+function hideAc(){ $('#acList').classList.add('hidden'); $('#fName').setAttribute('aria-expanded', 'false'); acIndex = -1; }
+function pickClient(c, keepFocus){
+  $('#fName').value = c.name;
+  $('#fPhone').value = c.phone || '';
+  $('#fEmail').value = c.email || '';
+  if (!editingId && !str($('#fService').value)){
+    var last = state.appointments.filter(function(a){ return a.clientId === c.id && a.service; }).sort(cmpAppt).pop();
+    if (last){
+      $('#fService').value = last.service;
+      buildDurationOptions(last.duration);
+    }
+  }
+  hideAc();
+  setLinked(c.id);
+  $('#errName').classList.add('hidden'); $('#fName').removeAttribute('aria-invalid');
+  updateFormInfo();
+  if (!keepFocus) $('#fService').focus();
+}
+
+/* ---------- Clients dialog ---------- */
+var dlgClients = $('#dlgClients'), selClient = null;
+function openClients(id){
+  selClient = id || null;
+  $('#clSearch').value = '';
+  renderClientList(); renderClientDetail();
+  if (!dlgClients.open) dlgClients.showModal();
+  if (!id && !isNarrow()) setTimeout(function(){ $('#clSearch').focus(); }, 30);
+}
+function refreshClientsIfOpen(){ if (dlgClients.open){ if (selClient && selClient !== 'new' && !getClient(selClient)) selClient = null; renderClientList(); renderClientDetail(); } }
+function renderClientList(){
+  var q = str($('#clSearch').value).toLowerCase(), qd = digits(q), stats = clientStats();
+  var list = state.clients.filter(function(c){
+    return !q || c.name.toLowerCase().indexOf(q) >= 0 || (c.email && c.email.toLowerCase().indexOf(q) >= 0) || (qd.length >= 3 && digits(c.phone).indexOf(qd) >= 0);
+  }).sort(function(a, b){ return a.name.localeCompare(b.name); });
+  $('#clTitle').textContent = 'Clients (' + state.clients.length + ')';
+  if (!list.length){
+    $('#clItems').innerHTML = '<div class="empty">' + icon('users') + '<div>' + (state.clients.length ? 'No clients match “' + esc(q) + '”.' : 'No clients yet. They are saved automatically when you book an appointment.') + '</div></div>';
+    return;
+  }
+  $('#clItems').innerHTML = list.map(function(c){
+    var s = stats[c.id] || { total:0 };
+    var sub = s.next ? 'Next: ' + fmtDateShort(s.next.slice(0,10)) : (c.phone || c.email || 'No contact details');
+    return '<button type="button" class="cl-item" data-cid="' + esc(c.id) + '"' + (c.id === selClient ? ' aria-current="true"' : '') + '>' +
+      '<span class="avatar">' + esc(initials(c.name)) + '</span><span class="meta"><b>' + esc(c.name) + '</b><small>' + esc(sub) + '</small></span>' +
+      '<span class="ct" title="Appointments">' + s.total + '</span></button>';
+  }).join('');
+}
+function renderClientDetail(){
+  var el = $('#clDetail'), wrap = $('#clWrap');
+  wrap.classList.toggle('show-detail', !!selClient);
+  if (!selClient){
+    el.innerHTML = '<div class="empty" style="padding-top:80px">' + icon('users') + '<div>Select a client to see their details and appointment history.</div></div>';
+    return;
+  }
+  var isNew = selClient === 'new';
+  var c = isNew ? { id:'', name:'', phone:'', email:'', notes:'' } : getClient(selClient);
+  if (!c){ selClient = null; renderClientDetail(); return; }
+  var hist = isNew ? [] : state.appointments.filter(function(a){ return a.clientId === c.id; }).sort(cmpAppt).reverse();
+  var conf = computeConflicts();
+  var tdy = ymd(today()), nowKey = tdy + ' ' + fromMin(nowMin());
+  var upcoming = hist.filter(function(a){ return (a.date + ' ' + a.start) >= nowKey && !INACTIVE[a.status]; });
+  var completed = hist.filter(function(a){ return a.status === 'completed'; }).length;
+  var noshow = hist.filter(function(a){ return a.status === 'no-show'; }).length;
+  var cancelled = hist.filter(function(a){ return a.status === 'cancelled'; }).length;
+  var h = '<div class="cl-top"><button type="button" class="btn icon ghost cl-back" id="clBack" aria-label="Back to client list">' + icon('chevL') + '</button>' +
+    '<span class="avatar lg">' + esc(isNew ? '+' : initials(c.name)) + '</span><div style="min-width:0;flex:1"><h3>' + esc(isNew ? 'New client' : c.name) + '</h3>' +
+    (isNew ? '' : '<div class="muted" style="font-size:12.5px">Client since ' + esc(new Date(c.createdAt).toLocaleDateString(undefined, { month:'short', year:'numeric' })) + '</div>') + '</div>' +
+    (isNew ? '' : '<button type="button" class="btn primary" id="clBook">' + icon('plus') + 'Book</button>') + '</div>';
+  if (!isNew){
+    h += '<div class="stats" style="padding:0 0 14px;grid-template-columns:repeat(4,1fr)">' +
+      '<div class="stat"><b>' + hist.length + '</b><span>Total</span></div>' +
+      '<div class="stat"><b>' + upcoming.length + '</b><span>Upcoming</span></div>' +
+      '<div class="stat"><b>' + completed + '</b><span>Completed</span></div>' +
+      '<div class="stat" title="' + cancelled + ' cancelled"><b>' + noshow + '</b><span>No-shows</span></div></div>';
+  }
+  h += '<form id="clForm" class="grid2" novalidate>' +
+    '<div class="field full"><label for="cName">Name <span class="req">*</span></label><input type="text" id="cName" value="' + esc(c.name) + '" required></div>' +
+    '<div class="field"><label for="cPhone">Phone</label><input type="tel" id="cPhone" value="' + esc(c.phone) + '"></div>' +
+    '<div class="field"><label for="cEmail">Email</label><input type="email" id="cEmail" value="' + esc(c.email) + '"></div>' +
+    '<div class="field full"><label for="cNotes">Client notes</label><textarea id="cNotes" rows="3" placeholder="Preferences, allergies, reminders…">' + esc(c.notes) + '</textarea></div>' +
+    '<div class="full" style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button type="submit" class="btn primary">' + (isNew ? 'Add client' : 'Save changes') + '</button>' +
+      (isNew ? '<button type="button" class="btn" id="clCancelNew">Cancel</button>' : '<button type="button" class="btn danger" id="clDelete">Delete client</button>') +
+    '</div></form>';
+  if (!isNew){
+    h += '<div class="section-t"><span>Appointment history</span><span class="muted" style="font-weight:400;font-size:12px">' + hist.length + ' total</span></div>';
+    if (!hist.length) h += '<div class="empty" style="padding:16px">No appointments yet.</div>';
+    else h += '<div class="hist">' + hist.map(function(a){ return upItemHtml(a, conf, { showDate:true, hideName:true, dimPast:false }); }).join('') + '</div>';
+  }
+  el.innerHTML = h;
+  el.scrollTop = 0;
+  if (isNew) setTimeout(function(){ var n = $('#cName'); if (n) n.focus(); }, 30);
+}
+function saveClientForm(){
+  var name = str($('#cName').value), phone = str($('#cPhone').value), email = str($('#cEmail').value), notes = str($('#cNotes').value);
+  if (!name){ $('#cName').setAttribute('aria-invalid', 'true'); $('#cName').focus(); toast('Name is required', true); return; }
+  if (selClient === 'new'){
+    var dup = state.clients.filter(function(c){ return c.name.toLowerCase() === name.toLowerCase(); })[0];
+    if (dup){ toast('A client named “' + dup.name + '” already exists', true); selClient = dup.id; renderClientList(); renderClientDetail(); return; }
+    var c = { id:uid(), name:name, phone:phone, email:email, notes:notes, createdAt:new Date().toISOString() };
+    state.clients.push(c); selClient = c.id;
+    toast('Client added');
+  } else {
+    var cl = getClient(selClient); if (!cl) return;
+    cl.name = name; cl.phone = phone; cl.email = email; cl.notes = notes;
+    state.appointments.forEach(function(a){ if (a.clientId === cl.id){ a.clientName = name; a.phone = phone; a.email = email; } });
+    toast('Client saved');
+  }
+  save(); renderClientList(); renderClientDetail(); render();
+}
+async function deleteClient(){
+  var c = getClient(selClient); if (!c) return;
+  var n = state.appointments.filter(function(a){ return a.clientId === c.id; }).length;
+  var ok = await confirmDlg({ title:'Delete ' + c.name + '?',
+    message:'The client record will be removed.' + (n ? ' Their ' + n + ' appointment' + (n > 1 ? 's stay' : ' stays') + ' on the calendar (unlinked).' : ''),
+    buttons:[{ label:'Keep', value:false }, { label:'Delete client', value:true, cls:'danger-solid' }] });
+  if (!ok) return;
+  state.clients = state.clients.filter(function(x){ return x.id !== c.id; });
+  state.appointments.forEach(function(a){ if (a.clientId === c.id) a.clientId = null; });
+  selClient = null; save(); renderClientList(); renderClientDetail(); render();
+  toast('Client deleted');
+}
+
+/* ---------- Settings ---------- */
+var dlgSettings = $('#dlgSettings');
+function openSettings(){
+  var S = state.settings;
+  $('#sStart').value = S.dayStart; $('#sEnd').value = S.dayEnd; $('#sDur').value = S.defaultDuration;
+  $('#sSlot').value = String(S.slotMinutes); $('#sWeek').value = String(S.weekStart); $('#sFmt').value = S.timeFormat;
+  var order = S.weekStart === 1 ? [1,2,3,4,5,6,0] : [0,1,2,3,4,5,6];
+  var base = new Date(2024, 0, 7); // a Sunday
+  $('#sDays').innerHTML = order.map(function(d){
+    return '<label><input type="checkbox" value="' + d + '"' + (S.workDays.indexOf(d) >= 0 ? ' checked' : '') + '>' + esc(addDays(base, d).toLocaleDateString(undefined, { weekday:'short' })) + '</label>';
+  }).join('');
+  $('#sServices').value = S.services.join('\n');
+  $('#setErr').classList.add('hidden');
+  dlgSettings.showModal();
+}
+function saveSettings(){
+  var err = $('#setErr'), st = String($('#sStart').value).slice(0,5), en = String($('#sEnd').value).slice(0,5);
+  var dur = parseInt($('#sDur').value, 10);
+  var msg = '';
+  if (!isTime(st) || !isTime(en)) msg = 'Please enter valid working hours.';
+  else if (toMin(en) <= toMin(st)) msg = 'Working hours must end after they start.';
+  else if (!(dur >= 5 && dur <= 720)) msg = 'Default length must be between 5 and 720 minutes.';
+  if (msg){ err.textContent = msg; err.classList.remove('hidden'); return; }
+  var S = state.settings;
+  S.dayStart = st; S.dayEnd = en; S.defaultDuration = dur;
+  S.slotMinutes = parseInt($('#sSlot').value, 10) || 30;
+  S.weekStart = parseInt($('#sWeek').value, 10) === 1 ? 1 : 0;
+  S.timeFormat = $('#sFmt').value === '24' ? '24' : '12';
+  S.workDays = $$('#sDays input:checked').map(function(i){ return +i.value; });
+  S.services = $('#sServices').value.split('\n').map(str).filter(Boolean);
+  save(); dlgSettings.close(); gridKey = ''; render();
+  toast('Settings saved');
+}
+
+/* ---------- Backup / import / export ---------- */
+var dlgBackup = $('#dlgBackup');
+function openBackup(){
+  var last = state.meta && state.meta.lastExport;
+  $('#bkInfo').innerHTML = '<b>' + state.appointments.length + '</b> appointments · <b>' + state.clients.length + '</b> clients stored in this browser.' +
+    '<br>Last JSON export: ' + (last ? esc(new Date(last).toLocaleString()) : 'never') +
+    (storageOk ? '' : '<br><span style="color:var(--danger)">Browser storage is unavailable — export now to avoid losing data.</span>');
+  dlgBackup.showModal();
+}
+function download(filename, text, mime){
+  try {
+    var blob = new Blob([text], { type:mime });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename; a.style.display = 'none';
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(url); a.parentNode && a.parentNode.removeChild(a); }, 1000);
+    return true;
+  } catch (e) { toast('Download failed: ' + e.message, true); return false; }
+}
+function exportJson(){
+  state.meta = state.meta || {};
+  state.meta.lastExport = new Date().toISOString();
+  var data = { app:'client-calendar', version:1, exportedAt:state.meta.lastExport, settings:state.settings, clients:state.clients, appointments:state.appointments, meta:state.meta };
+  if (download('client-calendar-backup-' + ymd(new Date()) + '.json', JSON.stringify(data, null, 2), 'application/json')){
+    save(); openBackupRefresh(); toast('Backup exported');
+  }
+}
+function openBackupRefresh(){ if (dlgBackup.open){ dlgBackup.close(); openBackup(); } }
+function importJsonFile(file){
+  var reader = new FileReader();
+  reader.onload = async function(){
+    var parsed;
+    try { parsed = JSON.parse(String(reader.result)); } catch (e) { toast('That file is not valid JSON.', true); return; }
+    if (!parsed || typeof parsed !== 'object' || (!Array.isArray(parsed.appointments) && !Array.isArray(parsed.clients))){
+      toast('This does not look like a Client Calendar backup.', true); return;
+    }
+    var inc = normalize(parsed);
+    var choice = await confirmDlg({
+      title:'Import backup',
+      html:'<p style="margin:0 0 8px">Found <b>' + inc.appointments.length + '</b> appointments and <b>' + inc.clients.length + '</b> clients.</p>' +
+        '<p style="margin:0" class="muted"><b>Merge</b> adds them to your current data (matching records are updated). <b>Replace</b> discards current data and settings first.</p>',
+      buttons:[{ label:'Cancel', value:null }, { label:'Replace', value:'replace', cls:'danger' }, { label:'Merge', value:'merge', cls:'primary' }],
+      cancelValue:null
+    });
+    if (!choice) return;
+    if (choice === 'replace'){
+      state = inc;
+    } else {
+      var ci = {}; state.clients.forEach(function(c, i){ ci[c.id] = i; });
+      inc.clients.forEach(function(c){ if (ci[c.id] !== undefined) state.clients[ci[c.id]] = c; else state.clients.push(c); });
+      var ai = {}; state.appointments.forEach(function(a, i){ ai[a.id] = i; });
+      inc.appointments.forEach(function(a){ if (ai[a.id] !== undefined) state.appointments[ai[a.id]] = a; else state.appointments.push(a); });
+      var valid = {}; state.clients.forEach(function(c){ valid[c.id] = 1; });
+      state.appointments.forEach(function(a){ if (a.clientId && !valid[a.clientId]) a.clientId = null; });
+    }
+    save(); gridKey = ''; render(); openBackupRefresh();
+    toast('Imported ' + inc.appointments.length + ' appointments');
+  };
+  reader.onerror = function(){ toast('Could not read the file.', true); };
+  reader.readAsText(file);
+}
+function icsEscape(s){ return String(s || '').replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;'); }
+function icsFold(line){
+  // Fold at 75 octets (UTF-8), never splitting a character
+  var out = [], curLine = '', bytes = 0, limit = 75;
+  Array.from(line).forEach(function(ch){
+    var cp = ch.codePointAt(0), b = cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4;
+    if (bytes + b > limit){ out.push(curLine); curLine = ' '; bytes = 1; }
+    curLine += ch; bytes += b;
+  });
+  out.push(curLine);
+  return out.join('\r\n');
+}
+function icsLocal(ds, min){
+  var d = parseYmd(ds); d.setMinutes(min);
+  return d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + 'T' + pad(d.getHours()) + pad(d.getMinutes()) + '00';
+}
+function icsUtc(d){ return d.getUTCFullYear() + pad(d.getUTCMonth()+1) + pad(d.getUTCDate()) + 'T' + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + 'Z'; }
+function exportIcs(){
+  var incPast = $('#icsPast').checked, incCancel = $('#icsCancelled').checked, tdy = ymd(today());
+  var list = state.appointments.filter(function(a){ return (incPast || a.date >= tdy) && (incCancel || !INACTIVE[a.status]); }).sort(cmpAppt);
+  if (!list.length){ toast('No appointments match those options.', true); return; }
+  var stamp = icsUtc(new Date());
+  var lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Client Calendar//Local App//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:Client Calendar'];
+  list.forEach(function(a){
+    var desc = [
+      'Client: ' + a.clientName,
+      a.phone ? 'Phone: ' + a.phone : '',
+      a.email ? 'Email: ' + a.email : '',
+      'Status: ' + STATUS_LABEL[a.status],
+      a.notes ? '\nNotes: ' + a.notes : ''
+    ].filter(Boolean).join('\n');
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:' + a.id + '@client-calendar.local');
+    lines.push('DTSTAMP:' + stamp);
+    lines.push('DTSTART:' + icsLocal(a.date, toMin(a.start)));
+    lines.push('DTEND:' + icsLocal(a.date, endMin(a)));
+    lines.push(icsFold('SUMMARY:' + icsEscape((a.service ? a.service + ' – ' : '') + a.clientName)));
+    lines.push(icsFold('DESCRIPTION:' + icsEscape(desc)));
+    lines.push('STATUS:' + (a.status === 'cancelled' ? 'CANCELLED' : a.status === 'booked' ? 'TENTATIVE' : 'CONFIRMED'));
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  if (download('client-calendar-' + ymd(new Date()) + '.ics', lines.join('\r\n') + '\r\n', 'text/calendar')) toast('Exported ' + list.length + ' appointments to .ics');
+}
+async function eraseAll(){
+  var ok = await confirmDlg({ title:'Erase all data?', message:'This permanently removes ' + state.appointments.length + ' appointments, ' + state.clients.length + ' clients and your settings from this browser. Export a backup first if you might need them.',
+    buttons:[{ label:'Cancel', value:false }, { label:'Erase everything', value:true, cls:'danger-solid' }] });
+  if (!ok) return;
+  state = { appointments:[], clients:[], settings:copySettings(DEFAULT_SETTINGS), meta:{} };
+  save(); gridKey = ''; render(); openBackupRefresh();
+  toast('All data erased');
+}
+
+/* ---------- Navigation ---------- */
+function shift(dir){
+  if (view === 'month') cur = new Date(cur.getFullYear(), cur.getMonth() + dir, 1);
+  else if (view === 'week') cur = addDays(cur, 7 * dir);
+  else cur = addDays(cur, dir);
+  render();
+}
+function setView(v){
+  if (v === view) return;
+  if (view === 'month' && v !== 'month'){
+    var t = today();
+    if (t.getFullYear() === cur.getFullYear() && t.getMonth() === cur.getMonth()) cur = t;
+  }
+  view = v; render();
+}
+function anyDialogOpen(){ return $$('dialog').some(function(d){ return d.open; }); }
+
+/* ---------- Event wiring ---------- */
+function wire(){
+  $$('[data-icon]').forEach(function(el){ el.insertAdjacentHTML('afterbegin', icon(el.dataset.icon)); });
+  // unwrap span icons
+  $$('span[data-icon]').forEach(function(sp){ var svg = sp.firstChild; sp.parentNode.replaceChild(svg, sp); });
+
+  $('#btnPrev').addEventListener('click', function(){ shift(-1); });
+  $('#btnNext').addEventListener('click', function(){ shift(1); });
+  $('#btnToday').addEventListener('click', function(){ cur = today(); gridKey = ''; render(); });
+  $$('.seg button').forEach(function(b){ b.addEventListener('click', function(){ setView(b.dataset.view); }); });
+  $('#btnNew').addEventListener('click', function(){ openNew(); });
+  $('#btnClients').addEventListener('click', function(){ openClients(); });
+  $('#btnSettings').addEventListener('click', openSettings);
+  $('#btnBackup').addEventListener('click', openBackup);
+
+  $('#cal').addEventListener('click', function(e){
+    var ev = e.target.closest('[data-id]');
+    if (ev){ openAppt(ev.dataset.id); return; }
+    var g = e.target.closest('[data-goto]');
+    if (g){ cur = parseYmd(g.dataset.goto); view = 'day'; gridKey = ''; render(); return; }
+    var col = e.target.closest('.tg-col');
+    if (col){
+      var r = col.getBoundingClientRect(), slot = state.settings.slotMinutes;
+      var m = +col.dataset.rs + (e.clientY - r.top) / +col.dataset.ppm;
+      m = Math.max(0, Math.min(1440 - slot, Math.floor(m / slot) * slot));
+      openNew({ date:col.dataset.date, start:fromMin(m) });
+      return;
+    }
+    var cell = e.target.closest('.m-cell');
+    if (cell){
+      if (isNarrow()){ cur = parseYmd(cell.dataset.date); view = 'day'; gridKey = ''; render(); }
+      else openNew({ date:cell.dataset.date });
+    }
+  });
+
+  document.querySelector('.side').addEventListener('click', function(e){
+    var it = e.target.closest('[data-id]'); if (it){ openAppt(it.dataset.id); return; }
+    if (e.target.closest('[data-new]')) openNew();
+  });
+
+  // Close buttons and backdrop clicks
+  $$('dialog').forEach(function(d){
+    d.addEventListener('click', function(e){
+      if (e.target.closest('[data-close]')) { d.close(); return; }
+      if (e.target === d && d.id !== 'dlgAppt' && d.id !== 'dlgConfirm'){
+        var r = d.getBoundingClientRect();
+        if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) d.close();
+      }
+    });
+  });
+
+  // Appointment form
+  $('#apptForm').addEventListener('submit', function(e){ e.preventDefault(); saveAppt(); });
+  $('#btnDelAppt').addEventListener('click', deleteAppt);
+  ['fDate','fStart','fDuration','fStatus'].forEach(function(id){
+    $('#' + id).addEventListener('input', updateFormInfo);
+    $('#' + id).addEventListener('change', updateFormInfo);
+  });
+  $('#apptConflict').addEventListener('click', function(e){
+    var b = e.target.closest('#btnUseFree'); if (!b) return;
+    $('#fStart').value = b.dataset.t; updateFormInfo();
+  });
+  $('#fLinked').addEventListener('click', function(e){
+    if (e.target.closest('#btnUnlink')){ setLinked(null); toast('Unlinked — a new client will be created on save'); }
+  });
+  var fName = $('#fName');
+  fName.addEventListener('input', function(){
+    var c = linkedClientId ? getClient(linkedClientId) : null;
+    if (c && c.name.toLowerCase() !== str(fName.value).toLowerCase()) setLinked(null);
+    else if (!c) setLinked(null);
+    $('#errName').classList.add('hidden'); fName.removeAttribute('aria-invalid');
+    showAc();
+  });
+  fName.addEventListener('focus', function(){ if (!linkedClientId) showAc(); });
+  fName.addEventListener('blur', function(){ setTimeout(hideAc, 150); });
+  fName.addEventListener('keydown', function(e){
+    var list = $('#acList');
+    if (list.classList.contains('hidden')) return;
+    var items = $$('.ac-item', list);
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+      e.preventDefault();
+      acIndex = e.key === 'ArrowDown' ? Math.min(items.length - 1, acIndex + 1) : Math.max(0, acIndex - 1);
+      items.forEach(function(it, i){ it.setAttribute('aria-selected', String(i === acIndex)); });
+      if (items[acIndex]) items[acIndex].scrollIntoView({ block:'nearest' });
+    } else if (e.key === 'Enter' && acIndex >= 0){
+      e.preventDefault(); pickClient(acItems[acIndex]);
+    } else if (e.key === 'Escape'){
+      e.preventDefault(); e.stopPropagation(); hideAc();
+    }
+  });
+  $('#acList').addEventListener('mousedown', function(e){ e.preventDefault(); });
+  $('#acList').addEventListener('click', function(e){
+    var it = e.target.closest('.ac-item'); if (it) pickClient(acItems[+it.dataset.i]);
+  });
+  dlgAppt.addEventListener('cancel', function(e){ if (!$('#acList').classList.contains('hidden')){ e.preventDefault(); hideAc(); } });
+
+  // Clients
+  $('#clSearch').addEventListener('input', renderClientList);
+  $('#btnNewClient').addEventListener('click', function(){ selClient = 'new'; renderClientList(); renderClientDetail(); });
+  $('#clItems').addEventListener('click', function(e){
+    var it = e.target.closest('[data-cid]'); if (!it) return;
+    selClient = it.dataset.cid; renderClientList(); renderClientDetail();
+  });
+  $('#clDetail').addEventListener('click', function(e){
+    if (e.target.closest('#clBack') || e.target.closest('#clCancelNew')){ selClient = null; renderClientList(); renderClientDetail(); return; }
+    if (e.target.closest('#clBook')){ var c = getClient(selClient); if (c) openNew({ client:c }); return; }
+    if (e.target.closest('#clDelete')){ deleteClient(); return; }
+    var it = e.target.closest('[data-id]'); if (it) openAppt(it.dataset.id);
+  });
+  $('#clDetail').addEventListener('submit', function(e){ if (e.target.id === 'clForm'){ e.preventDefault(); saveClientForm(); } });
+
+  // Settings
+  $('#setForm').addEventListener('submit', function(e){ e.preventDefault(); saveSettings(); });
+
+  // Backup
+  $('#btnExportJson').addEventListener('click', exportJson);
+  $('#btnImportJson').addEventListener('click', function(){ $('#fileImport').click(); });
+  $('#fileImport').addEventListener('change', function(e){ var f = e.target.files && e.target.files[0]; if (f) importJsonFile(f); e.target.value = ''; });
+  $('#btnExportIcs').addEventListener('click', exportIcs);
+  $('#btnErase').addEventListener('click', eraseAll);
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', function(e){
+    if (e.ctrlKey || e.metaKey || e.altKey || anyDialogOpen()) return;
+    var tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) return;
+    var k = e.key.toLowerCase();
+    if (k === 'n'){ e.preventDefault(); openNew(); }
+    else if (k === 't'){ cur = today(); gridKey = ''; render(); }
+    else if (k === 'm') setView('month');
+    else if (k === 'w') setView('week');
+    else if (k === 'd') setView('day');
+    else if (k === 'c'){ e.preventDefault(); openClients(); }
+    else if (e.key === 'ArrowLeft') shift(-1);
+    else if (e.key === 'ArrowRight') shift(1);
+  });
+
+  // Re-render on breakpoint changes and every minute (now line, upcoming)
+  var mq = window.matchMedia('(max-width: 640px)'), onMq = function(){ render(); };
+  if (mq.addEventListener) mq.addEventListener('change', onMq); else if (mq.addListener) mq.addListener(onMq);
+  var lastDay = ymd(today());
+  setInterval(function(){
+    var d = ymd(today());
+    if (d !== lastDay){ lastDay = d; }
+    renderCalendar(); renderUpcoming();
+  }, 60000);
+
+  // Sync between tabs
+  window.addEventListener('storage', function(e){
+    if (e.key !== STORE_KEY || anyDialogOpen()) return;
+    try { state = normalize(JSON.parse(e.newValue || 'null')); render(); } catch (err) {}
+  });
+}
+
+/* ---------- Init ---------- */
+$('#fStatus').innerHTML = STATUSES.map(function(s){ return '<option value="' + s[0] + '">' + s[1] + '</option>'; }).join('');
+load();
+wire();
+updateBanner();
+renderLegend();
+render();
+})();
+</script>
+</body>
+</html>

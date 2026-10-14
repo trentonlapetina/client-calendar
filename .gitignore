@@ -1,0 +1,28 @@
+# --- Secrets: never commit these ---
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+secrets.*
+config.local.*
+credentials*.json
+service-account*.json
+
+# --- Client data / backups exported from the app ---
+client-calendar-backup-*.json
+*.ics
+
+# --- Build output and dependencies ---
+node_modules/
+dist/
+.cache/
+
+# --- OS / editor clutter ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
